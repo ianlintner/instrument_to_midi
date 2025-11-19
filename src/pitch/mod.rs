@@ -1,3 +1,5 @@
+pub mod polyphonic;
+
 use log::debug;
 
 const MIN_FREQUENCY: f32 = 80.0; // Low E on guitar (82.41 Hz)
