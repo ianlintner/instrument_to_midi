@@ -35,6 +35,14 @@ pub struct Config {
     /// Maximum number of recent notes to track for pattern detection
     #[serde(default = "default_max_recent_notes")]
     pub max_recent_notes: usize,
+
+    /// Enable MIDI recording to file
+    #[serde(default)]
+    pub record_enabled: bool,
+
+    /// Output file path for MIDI recording (None = auto-generate based on timestamp)
+    #[serde(default)]
+    pub record_output: Option<String>,
 }
 
 fn default_fuzzy_enabled() -> bool {
@@ -66,6 +74,8 @@ impl Default for Config {
             fuzzy_threshold: default_fuzzy_threshold(),
             clear_threshold: default_clear_threshold(),
             max_recent_notes: default_max_recent_notes(),
+            record_enabled: false,
+            record_output: None,
         }
     }
 }

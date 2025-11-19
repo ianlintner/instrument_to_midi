@@ -1,3 +1,7 @@
+mod recorder;
+
+pub use recorder::MidiRecorder;
+
 use anyhow::{Context, Result};
 use log::{debug, info};
 use midir::{MidiOutput, MidiOutputConnection};
