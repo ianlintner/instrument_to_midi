@@ -22,7 +22,8 @@ impl StreamProcessor {
         let audio_input = AudioInput::new()?;
         let sample_rate = audio_input.sample_rate();
 
-        let pitch_detector = PitchDetector::new(sample_rate, config.buffer_size);
+        let pitch_detector =
+            PitchDetector::new(sample_rate, config.buffer_size, config.pitch_threshold);
         let mut midi_output = MidiOutputHandler::new()?;
         midi_output.connect(config.midi_port.as_deref())?;
 

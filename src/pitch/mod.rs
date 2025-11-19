@@ -1,7 +1,7 @@
 use log::debug;
 
 const MIN_FREQUENCY: f32 = 80.0; // Low E on guitar (82.41 Hz)
-const MAX_FREQUENCY: f32 = 1200.0; // High E on guitar (~1319 Hz)
+const MAX_FREQUENCY: f32 = 1320.0; // High E on guitar (1319 Hz)
 
 pub struct PitchDetector {
     sample_rate: f32,
@@ -10,11 +10,11 @@ pub struct PitchDetector {
 }
 
 impl PitchDetector {
-    pub fn new(sample_rate: u32, buffer_size: usize) -> Self {
+    pub fn new(sample_rate: u32, buffer_size: usize, threshold: f32) -> Self {
         Self {
             sample_rate: sample_rate as f32,
             buffer_size,
-            threshold: 0.15, // YIN threshold for good note detection
+            threshold,
         }
     }
 
@@ -89,7 +89,11 @@ impl PitchDetector {
         let s1 = data[index];
         let s2 = data[index + 1];
 
-        let adjustment = 0.5 * (s0 - s2) / (s0 - 2.0 * s1 + s2);
+        let denom = s0 - 2.0 * s1 + s2;
+        if denom.abs() < f32::EPSILON {
+            return index as f32;
+        }
+        let adjustment = 0.5 * (s0 - s2) / denom;
         index as f32 + adjustment
     }
 
@@ -138,15 +142,16 @@ mod tests {
 
     #[test]
     fn test_pitch_detector_creation() {
-        let detector = PitchDetector::new(44100, 2048);
+        let detector = PitchDetector::new(44100, 2048, 0.15);
         assert_eq!(detector.sample_rate, 44100.0);
         assert_eq!(detector.buffer_size, 2048);
+        assert_eq!(detector.threshold, 0.15);
     }
 
     #[test]
     fn test_detect_pitch_with_sine_wave() {
         let sample_rate = 44100;
-        let detector = PitchDetector::new(sample_rate, 2048);
+        let detector = PitchDetector::new(sample_rate, 2048, 0.15);
 
         // Generate a 440 Hz sine wave
         let frequency = 440.0;
