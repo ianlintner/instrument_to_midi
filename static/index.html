@@ -319,7 +319,8 @@
 
         .note-dot.active {
             fill: #10b981;
-            r: 12;
+            transform: scale(1.2);
+            transform-origin: center;
         }
 
         .string-label {
@@ -413,20 +414,6 @@
             font-size: 60px;
             font-family: serif;
             fill: #333;
-        }
-
-        /* Scrolling animation */
-        @keyframes scroll-left {
-            from {
-                transform: translateX(0);
-            }
-            to {
-                transform: translateX(-50px);
-            }
-        }
-
-        .scroll-content {
-            animation: scroll-left 1s linear infinite;
         }
     </style>
 </head>
@@ -542,6 +529,17 @@
 
         const STRING_ORDER = ['e', 'B', 'G', 'D', 'A', 'E'];
         
+        // Fretboard layout constants
+        const FRET_SPACING = 70;
+        const FRETBOARD_START_X = 80;
+        const STRING_SPACING = 25;
+        const FRETBOARD_START_Y = 20;
+        
+        // Staff layout constants
+        const STAFF_LINE_SPACING = 15;
+        const STAFF_START_Y = 40;
+        const STAFF_START_X = 80;
+        
         // Tab history
         let tabHistory = {
             'e': '',
@@ -571,19 +569,15 @@
             svg.innerHTML = ''; // Clear existing content
 
             const frets = 12;
-            const fretSpacing = 70;
-            const startX = 80;
-            const stringSpacing = 25;
-            const startY = 20;
 
             // Draw fret lines
             for (let i = 0; i <= frets; i++) {
-                const x = startX + i * fretSpacing;
+                const x = FRETBOARD_START_X + i * FRET_SPACING;
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 line.setAttribute('x1', x);
-                line.setAttribute('y1', startY);
+                line.setAttribute('y1', FRETBOARD_START_Y);
                 line.setAttribute('x2', x);
-                line.setAttribute('y2', startY + stringSpacing * 5);
+                line.setAttribute('y2', FRETBOARD_START_Y + STRING_SPACING * 5);
                 line.setAttribute('class', 'fret-line');
                 if (i === 0) line.setAttribute('stroke-width', '3'); // Nut
                 svg.appendChild(line);
@@ -591,8 +585,8 @@
                 // Add fret numbers
                 if (i > 0 && i <= 12) {
                     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    text.setAttribute('x', x - fretSpacing / 2);
-                    text.setAttribute('y', startY + stringSpacing * 5 + 20);
+                    text.setAttribute('x', x - FRET_SPACING / 2);
+                    text.setAttribute('y', FRETBOARD_START_Y + STRING_SPACING * 5 + 20);
                     text.setAttribute('class', 'fret-number');
                     text.setAttribute('text-anchor', 'middle');
                     text.textContent = i;
@@ -603,8 +597,8 @@
             // Draw fret markers
             const markerFrets = [3, 5, 7, 9, 12];
             markerFrets.forEach(fret => {
-                const x = startX + (fret - 0.5) * fretSpacing;
-                const y = startY + stringSpacing * 2.5;
+                const x = FRETBOARD_START_X + (fret - 0.5) * FRET_SPACING;
+                const y = FRETBOARD_START_Y + STRING_SPACING * 2.5;
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', x);
                 circle.setAttribute('cy', y);
@@ -615,7 +609,7 @@
 
             // Draw strings with labels
             STRING_ORDER.forEach((stringName, i) => {
-                const y = startY + i * stringSpacing;
+                const y = FRETBOARD_START_Y + i * STRING_SPACING;
                 
                 // String label
                 const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -627,9 +621,9 @@
 
                 // String line
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', startX);
+                line.setAttribute('x1', FRETBOARD_START_X);
                 line.setAttribute('y1', y);
-                line.setAttribute('x2', startX + frets * fretSpacing);
+                line.setAttribute('x2', FRETBOARD_START_X + frets * FRET_SPACING);
                 line.setAttribute('y2', y);
                 line.setAttribute('class', 'string-line');
                 line.setAttribute('stroke-width', 6 - i); // Thicker for lower strings
@@ -642,26 +636,23 @@
             const svg = document.getElementById('staff');
             svg.innerHTML = '';
 
-            const lineSpacing = 15;
-            const startY = 40;
-            const startX = 80;
             const width = 820;
 
             // Draw treble clef symbol
             const clef = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             clef.setAttribute('x', 20);
-            clef.setAttribute('y', startY + lineSpacing * 3);
+            clef.setAttribute('y', STAFF_START_Y + STAFF_LINE_SPACING * 3);
             clef.setAttribute('class', 'clef');
             clef.textContent = '𝄞'; // Treble clef
             svg.appendChild(clef);
 
             // Draw 5 staff lines
             for (let i = 0; i < 5; i++) {
-                const y = startY + i * lineSpacing;
+                const y = STAFF_START_Y + i * STAFF_LINE_SPACING;
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', startX);
+                line.setAttribute('x1', STAFF_START_X);
                 line.setAttribute('y1', y);
-                line.setAttribute('x2', startX + width);
+                line.setAttribute('x2', STAFF_START_X + width);
                 line.setAttribute('y2', y);
                 line.setAttribute('class', 'staff-line');
                 svg.appendChild(line);
@@ -691,14 +682,10 @@
                 // Find which string and fret this note corresponds to
                 const position = getNotePosition(midiNote);
                 if (position) {
-                    const fretSpacing = 70;
-                    const startX = 80;
-                    const stringSpacing = 25;
-                    const startY = 20;
-
                     const stringIndex = STRING_ORDER.indexOf(position.string);
-                    const x = startX + (position.fret - 0.5) * fretSpacing;
-                    const y = startY + stringIndex * stringSpacing;
+                    // Position open strings at the nut, fretted notes between frets
+                    const x = position.fret === 0 ? FRETBOARD_START_X : FRETBOARD_START_X + (position.fret - 0.5) * FRET_SPACING;
+                    const y = FRETBOARD_START_Y + stringIndex * STRING_SPACING;
 
                     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     circle.setAttribute('id', noteId);
@@ -712,6 +699,8 @@
         }
 
         // Get string and fret position for a MIDI note (standard tuning)
+        // Note: When a note can be played on multiple strings, this returns the lowest string
+        // (highest pitch string) where it can be played. This is a simplification for visualization.
         function getNotePosition(midiNote) {
             for (const [stringName, openNote] of Object.entries(STANDARD_TUNING)) {
                 if (midiNote >= openNote && midiNote <= openNote + 24) {
@@ -762,22 +751,23 @@
         }
 
         // Add note to staff
-        function addNoteToStaff(midiNote, noteName) {
+        function addNoteToStaff(midiNote) {
             const svg = document.getElementById('staff');
             const noteId = `staff-note-${Date.now()}-${midiNote}`;
-            
-            const lineSpacing = 15;
-            const startY = 40;
-            const startX = 80;
 
             // Calculate Y position based on MIDI note
             // Middle C (C4 = MIDI 60) is on the ledger line below staff
-            const c4Position = startY + lineSpacing * 5; // Below staff
+            const c4Position = STAFF_START_Y + STAFF_LINE_SPACING * 5; // Below staff
             const halfSteps = midiNote - 60; // Steps from C4
-            const y = c4Position - (halfSteps * lineSpacing / 2);
+            let y = c4Position - (halfSteps * STAFF_LINE_SPACING / 2);
+            
+            // Clamp Y position to keep note within staff area (with margin for ledger lines)
+            const minY = STAFF_START_Y - STAFF_LINE_SPACING * 2; // Top margin (2 ledger lines above)
+            const maxY = STAFF_START_Y + STAFF_LINE_SPACING * 7; // Bottom margin (2 ledger lines below)
+            y = Math.max(minY, Math.min(maxY, y));
 
             // Add note to end of staff (scrolling effect)
-            const xPos = startX + 700 + (noteHistory.length % 10) * 40;
+            const xPos = STAFF_START_X + 700 + (noteHistory.length % MAX_NOTE_HISTORY) * 40;
 
             // Draw note head
             const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
@@ -789,12 +779,14 @@
             ellipse.setAttribute('class', 'note-head active');
             svg.appendChild(ellipse);
 
-            // Draw stem (except for whole notes)
+            // Draw stem
+            // Stem direction: up for notes on/below middle line, down for notes above
+            const middleLineY = STAFF_START_Y + STAFF_LINE_SPACING * 2;
             const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             stem.setAttribute('x1', xPos + 7);
             stem.setAttribute('y1', y);
             stem.setAttribute('x2', xPos + 7);
-            stem.setAttribute('y2', y - 35);
+            stem.setAttribute('y2', y < middleLineY ? y + 35 : y - 35);
             stem.setAttribute('class', 'note-stem');
             svg.appendChild(stem);
 
@@ -885,7 +877,7 @@
             activeNotes.set(data.note, data.note_name);
             updateFretboard(data.note, true);
             addNoteToTab(data.note);
-            addNoteToStaff(data.note, data.note_name);
+            addNoteToStaff(data.note);
 
             addLogEntry('note-on', `Note ON: ${data.note_name} (${data.frequency.toFixed(2)} Hz, velocity: ${data.velocity})`);
         }
