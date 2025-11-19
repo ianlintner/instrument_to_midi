@@ -1,0 +1,40 @@
+[package]
+name = "instrument_to_midi"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ian Lintner"]
+description = "Real-time guitar to MIDI conversion using pitch detection"
+license = "MIT"
+
+[dependencies]
+# Audio input/output
+cpal = "0.15"
+# Signal processing
+rustfft = "6.1"
+# MIDI handling
+midir = "0.9"
+# Command-line interface
+clap = { version = "4.4", features = ["derive"] }
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+# Logging
+log = "0.4"
+env_logger = "0.11"
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# Async runtime for better performance
+tokio = { version = "1.35", features = ["full"] }
+crossbeam-channel = "0.5"
+
+[dev-dependencies]
+# Testing
+hound = "3.5"  # For reading WAV files in tests
+approx = "0.5"  # For floating point comparisons
+rand = "0.8"  # For generating test audio files
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
