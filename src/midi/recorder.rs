@@ -236,13 +236,16 @@ mod tests {
 
     #[test]
     fn test_save_empty_recording() {
+        use std::env;
         let recorder = MidiRecorder::new();
-        let result = recorder.save("/tmp/test_empty.mid");
+        let test_file = env::temp_dir().join("test_empty.mid");
+        let result = recorder.save(&test_file);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_save_recording() {
+        use std::env;
         let mut recorder = MidiRecorder::new();
         recorder.start();
         recorder.record_note_on(60, 80);
@@ -250,12 +253,12 @@ mod tests {
         recorder.record_note_off(60);
         recorder.stop();
 
-        let path = "/tmp/test_recording.mid";
-        let result = recorder.save(path);
+        let path = env::temp_dir().join("test_recording.mid");
+        let result = recorder.save(&path);
         assert!(result.is_ok());
 
         // Verify file was created
-        assert!(std::path::Path::new(path).exists());
+        assert!(path.exists());
     }
 
     #[test]

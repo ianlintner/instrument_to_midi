@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 use std::thread;
 use std::time::Duration;
@@ -11,8 +12,8 @@ fn test_midi_recording_integration() {
     // can be used properly. More detailed tests are in the unit tests.
 
     // Clean up any existing test files
-    let test_file = "/tmp/test_recording_integration.mid";
-    let _ = fs::remove_file(test_file);
+    let test_file = env::temp_dir().join("test_recording_integration.mid");
+    let _ = fs::remove_file(&test_file);
 
     // The recorder module is tested via unit tests in src/midi/recorder.rs
     // This integration test just ensures the module is properly accessible
@@ -25,7 +26,6 @@ fn test_midi_recording_integration() {
 #[test]
 fn test_config_with_recording_options() {
     use instrument_to_midi::config::Config;
-    use std::fs;
 
     // Test that config can be serialized and deserialized with recording options
     let config = Config {
@@ -34,10 +34,10 @@ fn test_config_with_recording_options() {
         ..Default::default()
     };
 
-    let config_path = "/tmp/test_recording_config.json";
-    config.to_file(config_path).unwrap();
+    let config_path = env::temp_dir().join("test_recording_config.json");
+    config.to_file(config_path.to_str().unwrap()).unwrap();
 
-    let loaded_config = Config::from_file(config_path).unwrap();
+    let loaded_config = Config::from_file(config_path.to_str().unwrap()).unwrap();
     assert!(loaded_config.record_enabled);
     assert_eq!(
         loaded_config.record_output,
@@ -45,7 +45,7 @@ fn test_config_with_recording_options() {
     );
 
     // Clean up
-    fs::remove_file(config_path).unwrap();
+    fs::remove_file(&config_path).unwrap();
 }
 
 #[test]
@@ -72,14 +72,14 @@ fn test_midi_file_creation() {
     recorder.stop();
 
     // Save the recording
-    let test_file = "/tmp/test_midi_creation.mid";
-    let result = recorder.save(test_file);
+    let test_file = env::temp_dir().join("test_midi_creation.mid");
+    let result = recorder.save(&test_file);
     assert!(result.is_ok(), "Failed to save MIDI file");
 
     // Verify file was created and has some content
-    let metadata = fs::metadata(test_file).unwrap();
+    let metadata = fs::metadata(&test_file).unwrap();
     assert!(metadata.len() > 0, "MIDI file is empty");
 
     // Clean up
-    fs::remove_file(test_file).unwrap();
+    fs::remove_file(&test_file).unwrap();
 }

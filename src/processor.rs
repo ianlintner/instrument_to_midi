@@ -198,11 +198,15 @@ impl StreamProcessor {
         if let Some(recorder) = &mut self.midi_recorder {
             recorder.stop();
             if recorder.event_count() > 0 {
-                let output_path = self.config.record_output.clone().unwrap_or_else(|| {
+                let default_path;
+                let output_path = if let Some(ref path) = self.config.record_output {
+                    path.as_str()
+                } else {
                     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-                    format!("recording_{}.mid", timestamp)
-                });
-                recorder.save(&output_path)?;
+                    default_path = format!("recording_{}.mid", timestamp);
+                    &default_path
+                };
+                recorder.save(output_path)?;
                 info!("MIDI recording saved to: {}", output_path);
             } else {
                 info!("No MIDI events recorded");
