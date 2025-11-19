@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use instrument_to_midi::{config::Config, midi, processor::StreamProcessor};
+use instrument_to_midi::{config::Config, midi, processor::StreamProcessor, web::WebServer};
 use log::info;
 
 #[derive(Parser)]
@@ -44,6 +44,14 @@ enum Commands {
         /// Output file path for MIDI recording (defaults to recording_<timestamp>.mid)
         #[arg(short, long)]
         output: Option<String>,
+
+        /// Enable web UI for monitoring (default port: 8080)
+        #[arg(short, long)]
+        web: bool,
+
+        /// Web UI port (default: 8080)
+        #[arg(long, default_value = "8080")]
+        web_port: u16,
     },
 
     /// List available MIDI output ports
@@ -57,7 +65,8 @@ enum Commands {
     },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -69,6 +78,8 @@ fn main() -> Result<()> {
             config: config_file,
             record,
             output,
+            web,
+            web_port,
         } => {
             // Initialize logger
             if verbose {
@@ -108,6 +119,26 @@ fn main() -> Result<()> {
 
             // Create and start processor
             let mut processor = StreamProcessor::new(config)?;
+
+            // Start web server if requested
+            if web {
+                info!("Starting web UI on port {}", web_port);
+                let web_server = WebServer::new(web_port);
+                let event_sender = web_server.event_sender();
+
+                // Set the event sender in the processor
+                processor.set_web_event_sender(event_sender);
+
+                // Spawn web server in a background task
+                tokio::spawn(async move {
+                    if let Err(e) = web_server.start().await {
+                        eprintln!("Web server error: {}", e);
+                    }
+                });
+
+                info!("Web UI available at http://127.0.0.1:{}", web_port);
+            }
+
             processor.start()?;
 
             Ok(())

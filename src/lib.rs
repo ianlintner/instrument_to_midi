@@ -5,3 +5,4 @@ pub mod fuzzy;
 pub mod midi;
 pub mod pitch;
 pub mod processor;
+pub mod web;

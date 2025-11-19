@@ -13,6 +13,7 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 - **Low-latency** audio processing optimized for live performance
 - **MIDI output** via virtual or physical MIDI ports
 - **MIDI file recording** - record sessions to Standard MIDI Files (.mid)
+- **Web-based monitoring UI** - real-time visualization of MIDI conversion
 - **Configurable** buffer sizes and detection parameters
 - **CLI interface** for easy usage
 - **Cross-platform** support (Linux, macOS, Windows)
@@ -80,7 +81,36 @@ cargo run --release -- stream --record
 
 # Record MIDI to a specific file
 cargo run --release -- stream --record --output my_recording.mid
+
+# Enable web UI for monitoring (default port: 8080)
+cargo run --release -- stream --web
+
+# Enable web UI on a custom port
+cargo run --release -- stream --web --web-port 3000
+
+# Combine web UI with recording
+cargo run --release -- stream --web --record
 ```
+
+### Web-based Monitoring UI
+
+The application includes a built-in web interface for real-time monitoring of the MIDI conversion process.
+
+```bash
+# Start with web UI enabled
+cargo run --release -- stream --web
+```
+
+Then open your browser to `http://127.0.0.1:8080` to view the monitoring dashboard.
+
+The web UI displays:
+- **Current note** being played with frequency and confidence
+- **Statistics** including total notes, events, and pitch bends
+- **Real-time event log** showing all MIDI events
+- **Recording status** indicator when recording is enabled
+- **Connection status** with auto-reconnect
+
+![Web UI Screenshot](https://github.com/user-attachments/assets/a5d70054-2b6a-4d30-87d5-17eeec08c425)
 
 ### List Available MIDI Ports
 
@@ -374,7 +404,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [ ] Support for multiple instruments (bass, vocals, etc.)
 - [ ] Polyphonic pitch detection
 - [x] MIDI file recording
-- [ ] Web-based UI for monitoring
+- [x] Web-based UI for monitoring
 - [ ] VST plugin version
 - [x] Pitch bend support for vibrato, trills, and whammy effects
 - [ ] Configuration presets for different instruments
