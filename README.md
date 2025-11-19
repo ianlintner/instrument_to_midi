@@ -14,7 +14,12 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 - **Low-latency** audio processing optimized for live performance
 - **MIDI output** via virtual or physical MIDI ports
 - **MIDI file recording** - record sessions to Standard MIDI Files (.mid)
-- **Web-based monitoring UI** - real-time visualization of MIDI conversion
+- **Web-based monitoring UI** - real-time visualization of MIDI conversion with:
+  - **Guitar fretboard** visualization showing notes on strings and frets
+  - **Guitar tab** notation with scrolling history
+  - **Sheet music** notation on treble clef staff
+  - Live note display with frequency and confidence
+  - Statistics and event logging
 - **Configurable** buffer sizes and detection parameters
 - **CLI interface** for easy usage
 - **Cross-platform** support (Linux, macOS, Windows)
@@ -110,11 +115,38 @@ Then open your browser to `http://127.0.0.1:8080` to view the monitoring dashboa
 The web UI displays:
 - **Current note** being played with frequency and confidence
 - **Statistics** including total notes, events, and pitch bends
+- **Guitar fretboard** visualization showing notes on strings and frets
+- **Guitar tab** notation with scrolling history (standard tuning: E-A-D-G-B-E)
+- **Sheet music** notation on treble clef staff
 - **Real-time event log** showing all MIDI events
 - **Recording status** indicator when recording is enabled
 - **Connection status** with auto-reconnect
 
-![Web UI Screenshot](https://github.com/user-attachments/assets/a5d70054-2b6a-4d30-87d5-17eeec08c425)
+#### Guitar Visualizations
+
+The web UI includes three types of guitar visualizations that update in real-time:
+
+1. **Fretboard Display**: Visual representation of a guitar neck showing:
+   - 12 frets with fret markers
+   - All 6 strings in standard tuning (E-A-D-G-B-E)
+   - Active notes highlighted with colored dots
+   - String and fret labels for easy reference
+
+2. **Tab Notation**: Traditional guitar tablature showing:
+   - 6 lines representing each string
+   - Fret numbers indicating where to play
+   - Horizontal scrolling to display note history
+   - Auto-scroll to keep latest notes visible
+
+3. **Sheet Music**: Standard musical notation featuring:
+   - Treble clef staff with 5 lines
+   - Notes positioned according to pitch
+   - Note heads with stems
+   - Scrolling history of played notes
+
+All visualizations assume **standard tuning** (E-A-D-G-B-E from low to high) and update automatically as notes are detected.
+
+![Web UI Screenshot](https://github.com/user-attachments/assets/12ec06fe-6622-4e88-9747-dd4302adbdde)
 
 ### List Available MIDI Ports
 
