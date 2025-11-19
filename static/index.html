@@ -285,7 +285,7 @@
     <div class="container">
         <header>
             <h1>🎸 Instrument to MIDI Monitor</h1>
-            <p class="subtitle">Real-time monitoring of guitar to MIDI conversion</p>
+            <p class="subtitle">Real-time monitoring of instrument to MIDI conversion</p>
         </header>
 
         <div class="status-bar">
@@ -348,7 +348,6 @@
         let totalNotes = 0;
         let totalEvents = 0;
         let pitchBends = 0;
-        let currentNoteActive = false;
 
         function connect() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -416,7 +415,6 @@
 
         function handleNoteOn(data) {
             totalNotes++;
-            currentNoteActive = true;
             
             document.getElementById('currentNote').textContent = data.note_name;
             document.getElementById('currentNote').classList.add('active');
@@ -429,7 +427,6 @@
         }
 
         function handleNoteOff(data) {
-            currentNoteActive = false;
             document.getElementById('currentNote').classList.remove('active');
             document.getElementById('currentNote').textContent = '-';
             document.getElementById('noteFrequency').textContent = '- Hz';
@@ -443,8 +440,8 @@
             document.getElementById('pitchBends').textContent = pitchBends;
             
             // Only log significant pitch bends to avoid spam
-            if (Math.abs(data.bend_value) > 1000) {
-                addLogEntry('pitch-bend', `Pitch bend: ${data.bend_value > 0 ? '+' : ''}${data.bend_value}`);
+            if (Math.abs(data.bend_value) > 0.1) {
+                addLogEntry('pitch-bend', `Pitch bend: ${data.bend_value > 0 ? '+' : ''}${data.bend_value.toFixed(2)}`);
             }
         }
 
@@ -467,10 +464,13 @@
             entry.className = `log-entry ${type}`;
             
             const timestamp = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <span class="timestamp">${timestamp}</span>
-                <span>${message}</span>
-            `;
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'timestamp';
+            timestampSpan.textContent = timestamp;
+            const messageSpan = document.createElement('span');
+            messageSpan.textContent = message;
+            entry.appendChild(timestampSpan);
+            entry.appendChild(messageSpan);
             
             log.insertBefore(entry, log.firstChild);
             

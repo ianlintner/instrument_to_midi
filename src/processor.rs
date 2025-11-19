@@ -84,6 +84,13 @@ impl StreamProcessor {
             recorder.start();
         }
 
+        // Broadcast recording status to web UI
+        if let Some(tx) = &self.web_event_tx {
+            let _ = tx.send(MonitoringEvent::RecordingStatus {
+                recording: self.midi_recorder.is_some(),
+            });
+        }
+
         let (tx, rx) = bounded(10);
         let _stream = self.audio_input.start_stream(tx)?;
 
