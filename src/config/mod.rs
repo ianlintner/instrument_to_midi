@@ -75,13 +75,28 @@ impl Config {
     pub fn from_file(path: &str) -> anyhow::Result<Self> {
         let contents = std::fs::read_to_string(path)?;
         let config: Config = serde_json::from_str(&contents)?;
+        config.validate()?;
         Ok(config)
     }
 
     /// Save configuration to JSON file
     pub fn to_file(&self, path: &str) -> anyhow::Result<()> {
+        self.validate()?;
         let json = serde_json::to_string_pretty(self)?;
         std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Validate configuration parameters
+    fn validate(&self) -> anyhow::Result<()> {
+        if self.fuzzy_enabled && self.clear_threshold < self.fuzzy_threshold {
+            anyhow::bail!(
+                "clear_threshold ({}) must be greater than or equal to fuzzy_threshold ({}). \
+                 Clear notes (used for learning) should have higher confidence than the threshold for applying fuzzy logic.",
+                self.clear_threshold,
+                self.fuzzy_threshold
+            );
+        }
         Ok(())
     }
 }
@@ -104,5 +119,32 @@ mod tests {
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.buffer_size, config.buffer_size);
+    }
+
+    #[test]
+    fn test_config_validation_valid() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_validation_invalid_thresholds() {
+        let config = Config {
+            fuzzy_threshold: 0.8,
+            clear_threshold: 0.7, // Invalid: clear < fuzzy
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_config_validation_disabled_fuzzy() {
+        let config = Config {
+            fuzzy_enabled: false,
+            fuzzy_threshold: 0.8,
+            clear_threshold: 0.7, // Would be invalid if fuzzy enabled, but OK when disabled
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
     }
 }

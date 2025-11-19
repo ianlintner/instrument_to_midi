@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// Represents a note detection with confidence level
 #[derive(Debug, Clone, Copy)]
@@ -13,7 +13,7 @@ pub struct NoteHistory {
     /// Count of how many times each note was detected with high confidence
     note_counts: HashMap<u8, u32>,
     /// Recent note sequence for pattern detection
-    recent_notes: Vec<u8>,
+    recent_notes: VecDeque<u8>,
     /// Maximum number of recent notes to track
     max_recent: usize,
     /// Minimum confidence threshold for a note to be considered "clear"
@@ -25,7 +25,7 @@ impl NoteHistory {
     pub fn new(max_recent: usize, clear_threshold: f32) -> Self {
         Self {
             note_counts: HashMap::new(),
-            recent_notes: Vec::new(),
+            recent_notes: VecDeque::new(),
             max_recent,
             clear_threshold,
         }
@@ -37,9 +37,9 @@ impl NoteHistory {
         if detection.confidence >= self.clear_threshold {
             *self.note_counts.entry(detection.note).or_insert(0) += 1;
 
-            self.recent_notes.push(detection.note);
+            self.recent_notes.push_back(detection.note);
             if self.recent_notes.len() > self.max_recent {
-                self.recent_notes.remove(0);
+                self.recent_notes.pop_front();
             }
         }
     }
@@ -59,7 +59,7 @@ impl NoteHistory {
     /// Check if a note has been seen recently
     pub fn is_recent(&self, note: u8, window: usize) -> bool {
         let start = self.recent_notes.len().saturating_sub(window);
-        self.recent_notes[start..].contains(&note)
+        self.recent_notes.range(start..).any(|&n| n == note)
     }
 
     /// Get the most common note from history
@@ -73,15 +73,21 @@ impl NoteHistory {
 
     /// Get neighboring notes from the most recent detection
     pub fn get_recent_neighbors(&self) -> Vec<u8> {
-        if let Some(&last_note) = self.recent_notes.last() {
-            // Return notes within ±2 semitones
-            vec![
-                last_note.saturating_sub(2),
-                last_note.saturating_sub(1),
-                last_note,
-                last_note.saturating_add(1).min(127),
-                last_note.saturating_add(2).min(127),
-            ]
+        if let Some(&last_note) = self.recent_notes.back() {
+            // Return unique notes within ±2 semitones, bounded by 0..=127
+            let mut neighbors = Vec::new();
+            for offset in -2i8..=2i8 {
+                let neighbor = if offset < 0 {
+                    last_note.saturating_sub(offset.unsigned_abs())
+                } else {
+                    (last_note as i16 + offset as i16).min(127) as u8
+                };
+                // Only add if not already in the list (avoid duplicates at boundaries)
+                if !neighbors.contains(&neighbor) {
+                    neighbors.push(neighbor);
+                }
+            }
+            neighbors
         } else {
             vec![]
         }
@@ -357,6 +363,33 @@ mod tests {
 
         let neighbors = history.get_recent_neighbors();
         assert_eq!(neighbors, vec![58, 59, 60, 61, 62]);
+    }
+
+    #[test]
+    fn test_get_recent_neighbors_edge_cases() {
+        let mut history = NoteHistory::new(10, 0.8);
+
+        // Test at boundary 0
+        history.record(&NoteDetection {
+            note: 0,
+            frequency: 8.18,
+            confidence: 0.9,
+        });
+        let neighbors = history.get_recent_neighbors();
+        // Should not have duplicates
+        assert!(neighbors.len() <= 5);
+        assert_eq!(neighbors[0], 0); // Lower bound
+
+        // Test at boundary 127
+        history.record(&NoteDetection {
+            note: 127,
+            frequency: 12543.85,
+            confidence: 0.9,
+        });
+        let neighbors = history.get_recent_neighbors();
+        // Should not have duplicates
+        assert!(neighbors.len() <= 5);
+        assert_eq!(*neighbors.last().unwrap(), 127); // Upper bound
     }
 
     #[test]

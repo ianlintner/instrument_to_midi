@@ -78,7 +78,7 @@ impl PitchDetector {
         let frequency = self.sample_rate / better_tau;
 
         // Calculate confidence: inverse of the CMND value (lower CMND = higher confidence)
-        // CMND values range from 0 to 1, so confidence = 1 - cmnd_value
+        // CMND values are normalized but can exceed 1.0; confidence is clamped to [0, 1]
         let confidence = (1.0 - cmnd[tau]).clamp(0.0, 1.0);
 
         // Validate frequency is in guitar range
@@ -118,6 +118,12 @@ impl PitchDetector {
         note.round().clamp(0.0, 127.0) as u8
     }
 
+    /// Convert MIDI note number to frequency
+    pub fn midi_to_frequency(midi_note: u8) -> f32 {
+        // frequency = 440 * 2^((midi_note - 69) / 12)
+        440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
+    }
+
     /// Get MIDI note name from note number
     pub fn midi_to_note_name(midi_note: u8) -> String {
         let note_names = [
@@ -144,6 +150,14 @@ mod tests {
 
         // E4 = 329.63 Hz = MIDI note 64
         assert_eq!(PitchDetector::frequency_to_midi(329.63), 64);
+    }
+
+    #[test]
+    fn test_midi_to_frequency() {
+        // Test round-trip conversion
+        assert_relative_eq!(PitchDetector::midi_to_frequency(69), 440.0, epsilon = 0.1);
+        assert_relative_eq!(PitchDetector::midi_to_frequency(40), 82.41, epsilon = 0.1);
+        assert_relative_eq!(PitchDetector::midi_to_frequency(64), 329.63, epsilon = 0.1);
     }
 
     #[test]

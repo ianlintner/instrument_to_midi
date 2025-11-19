@@ -128,9 +128,11 @@ impl StreamProcessor {
                 self.note_start_time = Some(Instant::now());
 
                 if confidence < self.config.fuzzy_threshold && self.config.fuzzy_enabled {
+                    // For fuzzy-resolved notes, show the expected frequency of the resolved note
+                    let resolved_frequency = PitchDetector::midi_to_frequency(note);
                     info!(
-                        "Playing note: {} ({:.2} Hz) [fuzzy resolved, confidence: {:.2}]",
-                        note_name, frequency, confidence
+                        "Playing note: {} ({:.2} Hz) [fuzzy resolved from {:.2} Hz, confidence: {:.2}]",
+                        note_name, resolved_frequency, frequency, confidence
                     );
                 } else {
                     info!("Playing note: {} ({:.2} Hz)", note_name, frequency);
