@@ -36,6 +36,13 @@ pub struct Config {
     #[serde(default = "default_max_recent_notes")]
     pub max_recent_notes: usize,
 
+    /// Enable MIDI recording to file
+    #[serde(default)]
+    pub record_enabled: bool,
+
+    /// Output file path for MIDI recording (None = auto-generate based on timestamp)
+    #[serde(default)]
+    pub record_output: Option<String>,
     /// Enable pitch bend for vibrato, trills, and whammy effects
     #[serde(default = "default_pitch_bend_enabled")]
     pub pitch_bend_enabled: bool,
@@ -82,6 +89,8 @@ impl Default for Config {
             fuzzy_threshold: default_fuzzy_threshold(),
             clear_threshold: default_clear_threshold(),
             max_recent_notes: default_max_recent_notes(),
+            record_enabled: false,
+            record_output: None,
             pitch_bend_enabled: default_pitch_bend_enabled(),
             pitch_bend_range: default_pitch_bend_range(),
         }

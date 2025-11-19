@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use crate::audio::AudioInput;
 use crate::config::Config;
 use crate::fuzzy::{FuzzyNoteResolver, NoteDetection};
-use crate::midi::MidiOutputHandler;
+use crate::midi::{MidiOutputHandler, MidiRecorder};
 use crate::pitch::PitchDetector;
 
 pub struct StreamProcessor {
@@ -14,6 +14,7 @@ pub struct StreamProcessor {
     audio_input: AudioInput,
     pitch_detector: PitchDetector,
     midi_output: MidiOutputHandler,
+    midi_recorder: Option<MidiRecorder>,
     fuzzy_resolver: Option<FuzzyNoteResolver>,
     current_note: Option<u8>,
     note_start_time: Option<Instant>,
@@ -41,6 +42,14 @@ impl StreamProcessor {
             None
         };
 
+        // Initialize MIDI recorder if enabled
+        let midi_recorder = if config.record_enabled {
+            info!("MIDI recording enabled");
+            Some(MidiRecorder::new())
+        } else {
+            None
+        };
+
         info!(
             "Stream processor initialized with sample rate: {} Hz",
             sample_rate
@@ -51,6 +60,7 @@ impl StreamProcessor {
             audio_input,
             pitch_detector,
             midi_output,
+            midi_recorder,
             fuzzy_resolver,
             current_note: None,
             note_start_time: None,
@@ -59,6 +69,11 @@ impl StreamProcessor {
 
     pub fn start(&mut self) -> Result<()> {
         info!("Starting real-time audio processing...");
+
+        // Start MIDI recording if enabled
+        if let Some(recorder) = &mut self.midi_recorder {
+            recorder.start();
+        }
 
         let (tx, rx) = bounded(10);
         let _stream = self.audio_input.start_stream(tx)?;
@@ -119,11 +134,17 @@ impl StreamProcessor {
                 // Turn off previous note if it exists
                 if let Some(prev_note) = self.current_note {
                     self.midi_output.note_off(prev_note)?;
+                    if let Some(recorder) = &mut self.midi_recorder {
+                        recorder.record_note_off(prev_note);
+                    }
                     debug!("Note changed from {} to {}", prev_note, note_name);
                 }
 
                 // Start new note
                 self.midi_output.note_on(note, self.config.velocity)?;
+                if let Some(recorder) = &mut self.midi_recorder {
+                    recorder.record_note_on(note, self.config.velocity);
+                }
                 self.current_note = Some(note);
                 self.note_start_time = Some(Instant::now());
 
@@ -155,6 +176,9 @@ impl StreamProcessor {
                     let duration = start_time.elapsed().as_secs_f32();
                     if duration >= self.config.min_note_duration {
                         self.midi_output.note_off(note)?;
+                        if let Some(recorder) = &mut self.midi_recorder {
+                            recorder.record_note_off(note);
+                        }
                         debug!("Note off after {:.2}s", duration);
                         self.current_note = None;
                         self.note_start_time = None;
@@ -169,6 +193,26 @@ impl StreamProcessor {
     pub fn stop(&mut self) -> Result<()> {
         info!("Stopping stream processor...");
         self.midi_output.all_notes_off()?;
+
+        // Save MIDI recording if enabled
+        if let Some(recorder) = &mut self.midi_recorder {
+            recorder.stop();
+            if recorder.event_count() > 0 {
+                let default_path;
+                let output_path = if let Some(ref path) = self.config.record_output {
+                    path.as_str()
+                } else {
+                    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                    default_path = format!("recording_{}.mid", timestamp);
+                    &default_path
+                };
+                recorder.save(output_path)?;
+                info!("MIDI recording saved to: {}", output_path);
+            } else {
+                info!("No MIDI events recorded");
+            }
+        }
+
         Ok(())
     }
 }

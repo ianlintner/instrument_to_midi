@@ -60,6 +60,15 @@ cargo run --release -- stream --port "Your MIDI Port Name"
 cargo run --release -- stream --buffer-size 1024 --velocity 90 --verbose
 ```
 
+**Option D: Record to MIDI File**
+```bash
+# Record with auto-generated filename (recording_YYYYMMDD_HHMMSS.mid)
+cargo run --release -- stream --record
+
+# Record to specific file
+cargo run --release -- stream --record --output my_performance.mid
+```
+
 ### 3. Connect Your Guitar
 
 1. Plug your guitar into your audio interface or microphone
@@ -108,6 +117,7 @@ ls -lh examples/audio/
 3. **Clean signal:** Use direct input or audio interface for best results
 4. **MIDI velocity:** Adjust with `--velocity` flag (0-127)
 5. **Debug:** Use `--verbose` flag to see detected frequencies
+6. **Record sessions:** Use `--record` flag to save MIDI files for later use in DAWs
 
 ## Example: Complete Setup
 

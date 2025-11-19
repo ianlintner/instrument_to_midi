@@ -6,11 +6,20 @@ authors = ["Ian Lintner"]
 description = "Real-time guitar to MIDI conversion using pitch detection"
 license = "MIT"
 
+[[bin]]
+name = "instrument_to_midi"
+path = "src/main.rs"
+
+[lib]
+name = "instrument_to_midi"
+path = "src/lib.rs"
+
 [dependencies]
 # Audio input/output
 cpal = "0.15"
 # MIDI handling
 midir = "0.9"
+midly = "0.5"  # MIDI file format handling
 # Command-line interface
 clap = { version = "4.4", features = ["derive"] }
 # Error handling
@@ -23,6 +32,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # Channel communication
 crossbeam-channel = "0.5"
+# Date and time
+chrono = "0.4"
 
 [dev-dependencies]
 # Testing

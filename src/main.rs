@@ -1,15 +1,7 @@
-mod audio;
-mod config;
-mod fuzzy;
-mod midi;
-mod pitch;
-mod processor;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use config::Config;
+use instrument_to_midi::{config::Config, midi, processor::StreamProcessor};
 use log::info;
-use processor::StreamProcessor;
 
 #[derive(Parser)]
 #[command(name = "instrument_to_midi")]
@@ -44,6 +36,14 @@ enum Commands {
         /// Configuration file path
         #[arg(short, long)]
         config: Option<String>,
+
+        /// Enable MIDI recording to file
+        #[arg(short, long)]
+        record: bool,
+
+        /// Output file path for MIDI recording (defaults to recording_<timestamp>.mid)
+        #[arg(short, long)]
+        output: Option<String>,
     },
 
     /// List available MIDI output ports
@@ -67,6 +67,8 @@ fn main() -> Result<()> {
             velocity,
             verbose,
             config: config_file,
+            record,
+            output,
         } => {
             // Initialize logger
             if verbose {
@@ -91,10 +93,18 @@ fn main() -> Result<()> {
             config.buffer_size = buffer_size;
             config.velocity = velocity;
             config.verbose = verbose;
+            config.record_enabled = record;
+            config.record_output = output;
 
             info!("Starting instrument to MIDI converter...");
             info!("Buffer size: {}", config.buffer_size);
             info!("Velocity: {}", config.velocity);
+            if config.record_enabled {
+                info!("Recording enabled");
+                if let Some(ref path) = config.record_output {
+                    info!("Recording output: {}", path);
+                }
+            }
 
             // Create and start processor
             let mut processor = StreamProcessor::new(config)?;

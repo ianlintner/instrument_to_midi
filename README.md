@@ -12,6 +12,7 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 - **Fuzzy note detection with session learning** - uses clearly detected notes to improve ambiguous detections
 - **Low-latency** audio processing optimized for live performance
 - **MIDI output** via virtual or physical MIDI ports
+- **MIDI file recording** - record sessions to Standard MIDI Files (.mid)
 - **Configurable** buffer sizes and detection parameters
 - **CLI interface** for easy usage
 - **Cross-platform** support (Linux, macOS, Windows)
@@ -73,6 +74,12 @@ cargo run --release -- stream --velocity 100
 
 # Enable verbose logging
 cargo run --release -- stream --verbose
+
+# Record MIDI to a file
+cargo run --release -- stream --record
+
+# Record MIDI to a specific file
+cargo run --release -- stream --record --output my_recording.mid
 ```
 
 ### List Available MIDI Ports
@@ -108,6 +115,8 @@ Configuration can be provided via a JSON file:
   "fuzzy_threshold": 0.7,
   "clear_threshold": 0.8,
   "max_recent_notes": 20,
+  "record_enabled": false,
+  "record_output": null
   "pitch_bend_enabled": true,
   "pitch_bend_range": 2.0
 }
@@ -119,6 +128,8 @@ Configuration can be provided via a JSON file:
 - `midi_port`: MIDI output port name (null for virtual port)
 - `velocity`: MIDI velocity (0-127)
 - `verbose`: Enable debug logging
+- `record_enabled`: Enable MIDI recording to file (default: false)
+- `record_output`: Output file path for MIDI recording (null = auto-generate based on timestamp)
 
 ### Pitch Bend
 
@@ -150,6 +161,41 @@ When a note is detected with low confidence (below `fuzzy_threshold`), the syste
 4. **Alternative resolution**: Checks ±1 semitone for better matches
 
 This helps resolve ambiguous detections while learning from clear notes throughout the session.
+
+### MIDI Recording
+
+The MIDI recording feature allows you to save your playing sessions to Standard MIDI Files (.mid format):
+
+- **Enable recording** using the `--record` flag when starting a stream
+- **Specify output file** with the `--output` flag (optional - defaults to `recording_<timestamp>.mid`)
+- **Automatic saving** when you stop the stream (Ctrl+C)
+- **Standard MIDI format** compatible with all major DAWs and music software
+
+The recorded MIDI files include:
+- All note on/off events with accurate timing
+- MIDI velocity information
+- Proper tempo metadata (120 BPM default)
+- Standard timing resolution (480 ticks per beat)
+
+Example usage:
+```bash
+# Record to auto-generated file (recording_20240101_120000.mid)
+cargo run --release -- stream --record
+
+# Record to specific file
+cargo run --release -- stream --record --output my_performance.mid
+
+# Record with configuration file
+cargo run --release -- stream --config config.json --record
+```
+
+You can import the recorded MIDI files into any DAW (Digital Audio Workstation) like:
+- Ableton Live
+- Logic Pro
+- FL Studio
+- GarageBand
+- Reaper
+- And many others
 
 ## Development
 
@@ -327,7 +373,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [ ] Support for multiple instruments (bass, vocals, etc.)
 - [ ] Polyphonic pitch detection
-- [ ] MIDI file recording
+- [x] MIDI file recording
 - [ ] Web-based UI for monitoring
 - [ ] VST plugin version
 - [x] Pitch bend support for vibrato, trills, and whammy effects
