@@ -159,6 +159,16 @@ impl StreamProcessor {
                     info!("Playing note: {} ({:.2} Hz)", note_name, frequency);
                 }
             }
+
+            // Apply pitch bend if enabled and we have an active note
+            if self.config.pitch_bend_enabled && self.current_note.is_some() {
+                let bend = PitchDetector::calculate_pitch_bend(
+                    frequency,
+                    note,
+                    self.config.pitch_bend_range,
+                );
+                self.midi_output.pitch_bend(bend)?;
+            }
         } else {
             // No pitch detected - turn off current note if minimum duration met
             if let Some(note) = self.current_note {

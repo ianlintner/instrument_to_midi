@@ -8,6 +8,7 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 ## Features
 
 - **Real-time pitch detection** using the YIN algorithm
+- **Pitch bend support** for vibrato, trills, and whammy effects
 - **Fuzzy note detection with session learning** - uses clearly detected notes to improve ambiguous detections
 - **Low-latency** audio processing optimized for live performance
 - **MIDI output** via virtual or physical MIDI ports
@@ -116,6 +117,8 @@ Configuration can be provided via a JSON file:
   "max_recent_notes": 20,
   "record_enabled": false,
   "record_output": null
+  "pitch_bend_enabled": true,
+  "pitch_bend_range": 2.0
 }
 ```
 
@@ -127,6 +130,20 @@ Configuration can be provided via a JSON file:
 - `verbose`: Enable debug logging
 - `record_enabled`: Enable MIDI recording to file (default: false)
 - `record_output`: Output file path for MIDI recording (null = auto-generate based on timestamp)
+
+### Pitch Bend
+
+The pitch bend feature enables real-time pitch tracking for expressive effects:
+
+- `pitch_bend_enabled`: Enable pitch bend for vibrato, trills, and whammy effects (default: true)
+- `pitch_bend_range`: Range in semitones for pitch bend (default: 2.0, can be set to 12.0 for wider bends)
+
+When enabled, the system continuously tracks the actual pitch of the detected note and sends MIDI pitch bend messages to reflect subtle frequency variations. This allows for:
+- **Vibrato**: Natural pitch oscillations during sustained notes
+- **Trills**: Smooth pitch transitions between alternating notes
+- **Whammy**: Guitar whammy bar effects with wide pitch bends
+
+The pitch bend range determines how the frequency deviation is mapped to MIDI pitch bend. A smaller range (e.g., 2.0) provides finer control for subtle effects, while a larger range (e.g., 12.0) allows for more dramatic pitch shifts.
 
 ### Fuzzy Note Detection
 
@@ -359,5 +376,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [x] MIDI file recording
 - [ ] Web-based UI for monitoring
 - [ ] VST plugin version
-- [ ] Pitch bend support for vibrato
+- [x] Pitch bend support for vibrato, trills, and whammy effects
 - [ ] Configuration presets for different instruments
