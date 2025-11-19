@@ -34,6 +34,7 @@ pub fn generate_test_audio(
 }
 
 /// Generate a guitar-like plucked note using Karplus-Strong algorithm
+#[allow(dead_code)]
 pub fn generate_guitar_note(
     frequency: f32,
     duration_secs: f32,

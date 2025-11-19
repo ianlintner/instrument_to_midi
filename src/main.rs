@@ -52,6 +52,10 @@ enum Commands {
         /// Web UI port (default: 8080)
         #[arg(long, default_value = "8080")]
         web_port: u16,
+
+        /// Enable polyphonic pitch detection (detect multiple simultaneous notes)
+        #[arg(long)]
+        polyphonic: bool,
     },
 
     /// List available MIDI output ports
@@ -80,6 +84,7 @@ async fn main() -> Result<()> {
             output,
             web,
             web_port,
+            polyphonic,
         } => {
             // Initialize logger
             if verbose {
@@ -106,10 +111,14 @@ async fn main() -> Result<()> {
             config.verbose = verbose;
             config.record_enabled = record;
             config.record_output = output;
+            config.polyphonic_enabled = polyphonic;
 
             info!("Starting instrument to MIDI converter...");
             info!("Buffer size: {}", config.buffer_size);
             info!("Velocity: {}", config.velocity);
+            if config.polyphonic_enabled {
+                info!("Polyphonic mode enabled");
+            }
             if config.record_enabled {
                 info!("Recording enabled");
                 if let Some(ref path) = config.record_output {

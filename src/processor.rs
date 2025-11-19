@@ -1,6 +1,7 @@
 use anyhow::Result;
 use crossbeam_channel::{bounded, Receiver};
 use log::{debug, info};
+use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 
@@ -8,6 +9,7 @@ use crate::audio::AudioInput;
 use crate::config::Config;
 use crate::fuzzy::{FuzzyNoteResolver, NoteDetection};
 use crate::midi::{MidiOutputHandler, MidiRecorder};
+use crate::pitch::polyphonic::PolyphonicPitchDetector;
 use crate::pitch::PitchDetector;
 use crate::web::MonitoringEvent;
 
@@ -15,10 +17,12 @@ pub struct StreamProcessor {
     config: Config,
     audio_input: AudioInput,
     pitch_detector: PitchDetector,
+    polyphonic_detector: Option<PolyphonicPitchDetector>,
     midi_output: MidiOutputHandler,
     midi_recorder: Option<MidiRecorder>,
     fuzzy_resolver: Option<FuzzyNoteResolver>,
     current_note: Option<u8>,
+    active_notes: HashSet<u8>,
     note_start_time: Option<Instant>,
     web_event_tx: Option<broadcast::Sender<MonitoringEvent>>,
 }
@@ -30,11 +34,24 @@ impl StreamProcessor {
 
         let pitch_detector =
             PitchDetector::new(sample_rate, config.buffer_size, config.pitch_threshold);
+
+        // Initialize polyphonic detector if enabled
+        let polyphonic_detector = if config.polyphonic_enabled {
+            info!("Polyphonic pitch detection enabled");
+            Some(PolyphonicPitchDetector::new(
+                sample_rate,
+                config.buffer_size,
+                config.polyphonic_threshold,
+            ))
+        } else {
+            None
+        };
+
         let mut midi_output = MidiOutputHandler::new()?;
         midi_output.connect(config.midi_port.as_deref())?;
 
-        // Initialize fuzzy note resolver if enabled
-        let fuzzy_resolver = if config.fuzzy_enabled {
+        // Initialize fuzzy note resolver if enabled (only for monophonic mode)
+        let fuzzy_resolver = if config.fuzzy_enabled && !config.polyphonic_enabled {
             info!("Fuzzy note detection enabled");
             Some(FuzzyNoteResolver::new(
                 config.max_recent_notes,
@@ -62,10 +79,12 @@ impl StreamProcessor {
             config,
             audio_input,
             pitch_detector,
+            polyphonic_detector,
             midi_output,
             midi_recorder,
             fuzzy_resolver,
             current_note: None,
+            active_notes: HashSet::new(),
             note_start_time: None,
             web_event_tx: None,
         })
@@ -122,6 +141,96 @@ impl StreamProcessor {
     }
 
     fn process_chunk(&mut self, samples: &[f32]) -> Result<()> {
+        // Use polyphonic detection if enabled
+        if self.polyphonic_detector.is_some() {
+            // Extract the detector temporarily to avoid borrow checker issues
+            let mut poly_detector = self.polyphonic_detector.take().unwrap();
+            self.process_polyphonic(samples, &mut poly_detector)?;
+            self.polyphonic_detector = Some(poly_detector);
+        } else {
+            self.process_monophonic(samples)?;
+        }
+        Ok(())
+    }
+
+    fn process_polyphonic(
+        &mut self,
+        samples: &[f32],
+        poly_detector: &mut PolyphonicPitchDetector,
+    ) -> Result<()> {
+        let candidates = poly_detector.detect_pitches(samples);
+
+        // Get current detected notes
+        let detected_notes: HashSet<u8> = candidates.iter().map(|c| c.midi_note).collect();
+
+        // Turn off notes that are no longer detected
+        let notes_to_turn_off: Vec<u8> = self
+            .active_notes
+            .difference(&detected_notes)
+            .copied()
+            .collect();
+
+        for &note in &notes_to_turn_off {
+            self.midi_output.note_off(note)?;
+            if let Some(recorder) = &mut self.midi_recorder {
+                recorder.record_note_off(note);
+            }
+
+            // Broadcast note off event
+            if let Some(tx) = &self.web_event_tx {
+                let note_name = PolyphonicPitchDetector::midi_to_note_name(note);
+                let _ = tx.send(MonitoringEvent::NoteOff { note, note_name });
+            }
+
+            self.active_notes.remove(&note);
+            debug!("Note off (polyphonic): {}", note);
+        }
+
+        // Turn on new notes
+        let notes_to_turn_on: Vec<u8> = detected_notes
+            .difference(&self.active_notes)
+            .copied()
+            .collect();
+
+        for &note in &notes_to_turn_on {
+            self.midi_output.note_on(note, self.config.velocity)?;
+            if let Some(recorder) = &mut self.midi_recorder {
+                recorder.record_note_on(note, self.config.velocity);
+            }
+
+            self.active_notes.insert(note);
+
+            // Broadcast note on event
+            if let Some(tx) = &self.web_event_tx {
+                let note_name = PolyphonicPitchDetector::midi_to_note_name(note);
+                if let Some(candidate) = candidates.iter().find(|c| c.midi_note == note) {
+                    let _ = tx.send(MonitoringEvent::NoteOn {
+                        note,
+                        note_name: note_name.clone(),
+                        frequency: candidate.frequency,
+                        velocity: self.config.velocity,
+                        confidence: candidate.magnitude,
+                    });
+                }
+            }
+
+            debug!("Note on (polyphonic): {}", note);
+        }
+
+        // Log active notes if changed
+        if !notes_to_turn_off.is_empty() || !notes_to_turn_on.is_empty() {
+            let note_names: Vec<String> = self
+                .active_notes
+                .iter()
+                .map(|&n| PolyphonicPitchDetector::midi_to_note_name(n))
+                .collect();
+            info!("Active notes: {}", note_names.join(", "));
+        }
+
+        Ok(())
+    }
+
+    fn process_monophonic(&mut self, samples: &[f32]) -> Result<()> {
         // Detect pitch with confidence
         if let Some((frequency, confidence)) =
             self.pitch_detector.detect_pitch_with_confidence(samples)
@@ -244,7 +353,10 @@ impl StreamProcessor {
 
     pub fn stop(&mut self) -> Result<()> {
         info!("Stopping stream processor...");
+
+        // Turn off all active notes
         self.midi_output.all_notes_off()?;
+        self.active_notes.clear();
 
         // Save MIDI recording if enabled
         if let Some(recorder) = &mut self.midi_recorder {

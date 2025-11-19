@@ -8,6 +8,7 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 ## Features
 
 - **Real-time pitch detection** using the YIN algorithm
+- **Polyphonic pitch detection** - detect multiple simultaneous notes (chords)
 - **Pitch bend support** for vibrato, trills, and whammy effects
 - **Fuzzy note detection with session learning** - uses clearly detected notes to improve ambiguous detections
 - **Low-latency** audio processing optimized for live performance
@@ -90,6 +91,9 @@ cargo run --release -- stream --web --web-port 3000
 
 # Combine web UI with recording
 cargo run --release -- stream --web --record
+
+# Enable polyphonic mode (detect multiple simultaneous notes)
+cargo run --release -- stream --polyphonic
 ```
 
 ### Web-based Monitoring UI
@@ -146,9 +150,11 @@ Configuration can be provided via a JSON file:
   "clear_threshold": 0.8,
   "max_recent_notes": 20,
   "record_enabled": false,
-  "record_output": null
+  "record_output": null,
   "pitch_bend_enabled": true,
-  "pitch_bend_range": 2.0
+  "pitch_bend_range": 2.0,
+  "polyphonic_enabled": false,
+  "polyphonic_threshold": 0.2
 }
 ```
 
@@ -160,6 +166,22 @@ Configuration can be provided via a JSON file:
 - `verbose`: Enable debug logging
 - `record_enabled`: Enable MIDI recording to file (default: false)
 - `record_output`: Output file path for MIDI recording (null = auto-generate based on timestamp)
+
+### Polyphonic Pitch Detection
+
+The polyphonic pitch detection feature enables detection of multiple simultaneous notes, perfect for playing chords:
+
+- `polyphonic_enabled`: Enable polyphonic pitch detection (default: false)
+- `polyphonic_threshold`: Minimum peak magnitude for detection (default: 0.2, higher = less sensitive)
+
+When enabled, the system uses FFT-based spectral analysis to detect multiple pitches simultaneously. This allows for:
+- **Chord detection**: Play multiple notes at once and have them all converted to MIDI
+- **Strumming**: Capture guitar strums with multiple strings
+- **Multi-voice playing**: Detect multiple melodic lines simultaneously
+
+The polyphonic detector automatically filters out harmonic overtones to avoid duplicate notes. It can detect up to 6 simultaneous notes, which covers most guitar chords and typical polyphonic playing scenarios.
+
+**Note**: When polyphonic mode is enabled, some monophonic features like pitch bend and fuzzy note detection are disabled, as they are designed for single-note playing.
 
 ### Pitch Bend
 
@@ -402,7 +424,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Future Enhancements
 
 - [ ] Support for multiple instruments (bass, vocals, etc.)
-- [ ] Polyphonic pitch detection
+- [x] Polyphonic pitch detection
 - [x] MIDI file recording
 - [x] Web-based UI for monitoring
 - [ ] VST plugin version

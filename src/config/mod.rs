@@ -50,6 +50,14 @@ pub struct Config {
     /// Range in semitones for pitch bend (typically 2 or 12)
     #[serde(default = "default_pitch_bend_range")]
     pub pitch_bend_range: f32,
+
+    /// Enable polyphonic pitch detection (detect multiple simultaneous notes)
+    #[serde(default)]
+    pub polyphonic_enabled: bool,
+
+    /// Minimum peak magnitude for polyphonic detection (higher = less sensitive)
+    #[serde(default = "default_polyphonic_threshold")]
+    pub polyphonic_threshold: f32,
 }
 
 fn default_fuzzy_enabled() -> bool {
@@ -76,6 +84,10 @@ fn default_pitch_bend_range() -> f32 {
     2.0
 }
 
+fn default_polyphonic_threshold() -> f32 {
+    0.2
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -93,6 +105,8 @@ impl Default for Config {
             record_output: None,
             pitch_bend_enabled: default_pitch_bend_enabled(),
             pitch_bend_range: default_pitch_bend_range(),
+            polyphonic_enabled: false,
+            polyphonic_threshold: default_polyphonic_threshold(),
         }
     }
 }
