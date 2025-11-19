@@ -2,12 +2,14 @@ use anyhow::Result;
 use crossbeam_channel::{bounded, Receiver};
 use log::{debug, info};
 use std::time::{Duration, Instant};
+use tokio::sync::broadcast;
 
 use crate::audio::AudioInput;
 use crate::config::Config;
 use crate::fuzzy::{FuzzyNoteResolver, NoteDetection};
 use crate::midi::{MidiOutputHandler, MidiRecorder};
 use crate::pitch::PitchDetector;
+use crate::web::MonitoringEvent;
 
 pub struct StreamProcessor {
     config: Config,
@@ -18,6 +20,7 @@ pub struct StreamProcessor {
     fuzzy_resolver: Option<FuzzyNoteResolver>,
     current_note: Option<u8>,
     note_start_time: Option<Instant>,
+    web_event_tx: Option<broadcast::Sender<MonitoringEvent>>,
 }
 
 impl StreamProcessor {
@@ -64,7 +67,13 @@ impl StreamProcessor {
             fuzzy_resolver,
             current_note: None,
             note_start_time: None,
+            web_event_tx: None,
         })
+    }
+
+    /// Set the web event sender for broadcasting monitoring events
+    pub fn set_web_event_sender(&mut self, tx: broadcast::Sender<MonitoringEvent>) {
+        self.web_event_tx = Some(tx);
     }
 
     pub fn start(&mut self) -> Result<()> {
@@ -137,6 +146,16 @@ impl StreamProcessor {
                     if let Some(recorder) = &mut self.midi_recorder {
                         recorder.record_note_off(prev_note);
                     }
+
+                    // Broadcast note off event
+                    if let Some(tx) = &self.web_event_tx {
+                        let prev_note_name = PitchDetector::midi_to_note_name(prev_note);
+                        let _ = tx.send(MonitoringEvent::NoteOff {
+                            note: prev_note,
+                            note_name: prev_note_name,
+                        });
+                    }
+
                     debug!("Note changed from {} to {}", prev_note, note_name);
                 }
 
@@ -147,6 +166,17 @@ impl StreamProcessor {
                 }
                 self.current_note = Some(note);
                 self.note_start_time = Some(Instant::now());
+
+                // Broadcast note on event
+                if let Some(tx) = &self.web_event_tx {
+                    let _ = tx.send(MonitoringEvent::NoteOn {
+                        note,
+                        note_name: note_name.clone(),
+                        frequency,
+                        velocity: self.config.velocity,
+                        confidence,
+                    });
+                }
 
                 if confidence < self.config.fuzzy_threshold && self.config.fuzzy_enabled {
                     // For fuzzy-resolved notes, show the expected frequency of the resolved note
@@ -168,6 +198,14 @@ impl StreamProcessor {
                     self.config.pitch_bend_range,
                 );
                 self.midi_output.pitch_bend(bend)?;
+
+                // Broadcast pitch bend event
+                if let Some(tx) = &self.web_event_tx {
+                    let _ = tx.send(MonitoringEvent::PitchBend {
+                        note,
+                        bend_value: bend,
+                    });
+                }
             }
         } else {
             // No pitch detected - turn off current note if minimum duration met
@@ -179,6 +217,13 @@ impl StreamProcessor {
                         if let Some(recorder) = &mut self.midi_recorder {
                             recorder.record_note_off(note);
                         }
+
+                        // Broadcast note off event
+                        if let Some(tx) = &self.web_event_tx {
+                            let note_name = PitchDetector::midi_to_note_name(note);
+                            let _ = tx.send(MonitoringEvent::NoteOff { note, note_name });
+                        }
+
                         debug!("Note off after {:.2}s", duration);
                         self.current_note = None;
                         self.note_start_time = None;
