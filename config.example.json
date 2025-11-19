@@ -1,0 +1,8 @@
+{
+  "buffer_size": 2048,
+  "min_note_duration": 0.05,
+  "pitch_threshold": 0.15,
+  "midi_port": null,
+  "velocity": 80,
+  "verbose": false
+}

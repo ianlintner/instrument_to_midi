@@ -20,3 +20,6 @@ test_output/
 
 # Logs
 *.log
+
+# Local configuration (use config.example.json as template)
+config.json
