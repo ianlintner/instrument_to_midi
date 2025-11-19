@@ -35,6 +35,14 @@ pub struct Config {
     /// Maximum number of recent notes to track for pattern detection
     #[serde(default = "default_max_recent_notes")]
     pub max_recent_notes: usize,
+
+    /// Enable pitch bend for vibrato, trills, and whammy effects
+    #[serde(default = "default_pitch_bend_enabled")]
+    pub pitch_bend_enabled: bool,
+
+    /// Range in semitones for pitch bend (typically 2 or 12)
+    #[serde(default = "default_pitch_bend_range")]
+    pub pitch_bend_range: f32,
 }
 
 fn default_fuzzy_enabled() -> bool {
@@ -53,6 +61,14 @@ fn default_max_recent_notes() -> usize {
     20
 }
 
+fn default_pitch_bend_enabled() -> bool {
+    true
+}
+
+fn default_pitch_bend_range() -> f32 {
+    2.0
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -66,6 +82,8 @@ impl Default for Config {
             fuzzy_threshold: default_fuzzy_threshold(),
             clear_threshold: default_clear_threshold(),
             max_recent_notes: default_max_recent_notes(),
+            pitch_bend_enabled: default_pitch_bend_enabled(),
+            pitch_bend_range: default_pitch_bend_range(),
         }
     }
 }
@@ -146,5 +164,25 @@ mod tests {
             ..Default::default()
         };
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_pitch_bend_defaults() {
+        let config = Config::default();
+        assert!(config.pitch_bend_enabled);
+        assert_eq!(config.pitch_bend_range, 2.0);
+    }
+
+    #[test]
+    fn test_config_pitch_bend_serialization() {
+        let config = Config {
+            pitch_bend_enabled: false,
+            pitch_bend_range: 12.0,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: Config = serde_json::from_str(&json).unwrap();
+        assert!(!deserialized.pitch_bend_enabled);
+        assert_eq!(deserialized.pitch_bend_range, 12.0);
     }
 }
