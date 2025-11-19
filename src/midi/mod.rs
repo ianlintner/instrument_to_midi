@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 const NOTE_ON: u8 = 0x90;
 const NOTE_OFF: u8 = 0x80;
+const PITCH_BEND: u8 = 0xE0;
 #[allow(dead_code)]
 const DEFAULT_VELOCITY: u8 = 80;
 const DEFAULT_CHANNEL: u8 = 0;
@@ -114,6 +115,36 @@ impl MidiOutputHandler {
         Ok(())
     }
 
+    /// Send a pitch bend message
+    ///
+    /// # Arguments
+    /// * `bend` - Pitch bend value from -1.0 to +1.0, where:
+    ///   - -1.0 = maximum downward bend
+    ///   - 0.0 = no bend (centered)
+    ///   - +1.0 = maximum upward bend
+    pub fn pitch_bend(&mut self, bend: f32) -> Result<()> {
+        if let Some(conn) = &mut self.connection {
+            // Clamp bend value to valid range
+            let bend = bend.clamp(-1.0, 1.0);
+
+            // Convert to 14-bit MIDI pitch bend value (0-16383, center is 8192)
+            let bend_value = ((bend + 1.0) * 8192.0) as u16;
+            let bend_value = bend_value.clamp(0, 16383);
+
+            // Split into LSB and MSB (7 bits each)
+            let lsb = (bend_value & 0x7F) as u8;
+            let msb = ((bend_value >> 7) & 0x7F) as u8;
+
+            let message = [PITCH_BEND | DEFAULT_CHANNEL, lsb, msb];
+            conn.send(&message)?;
+
+            debug!("Pitch bend: {:.3} (value: {})", bend, bend_value);
+            Ok(())
+        } else {
+            anyhow::bail!("MIDI output not connected")
+        }
+    }
+
     /// Check if a note is currently active
     #[allow(dead_code)]
     pub fn is_note_active(&self, note: u8) -> bool {
@@ -178,5 +209,22 @@ mod tests {
         handler.active_notes.insert(60, 1);
         assert_eq!(handler.active_note_count(), 1);
         assert!(handler.is_note_active(60));
+    }
+
+    #[test]
+    fn test_pitch_bend_calculation() {
+        // Test center position (no bend)
+        let bend_value = ((0.0 + 1.0) * 8192.0) as u16;
+        assert_eq!(bend_value, 8192);
+
+        // Test maximum upward bend
+        let bend_value = ((1.0 + 1.0) * 8192.0) as u16;
+        assert_eq!(bend_value, 16384);
+        let clamped = bend_value.clamp(0, 16383);
+        assert_eq!(clamped, 16383);
+
+        // Test maximum downward bend
+        let bend_value = ((-1.0 + 1.0) * 8192.0) as u16;
+        assert_eq!(bend_value, 0);
     }
 }

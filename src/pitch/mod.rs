@@ -133,6 +133,33 @@ impl PitchDetector {
         let note_index = (midi_note % 12) as usize;
         format!("{}{}", note_names[note_index], octave)
     }
+
+    /// Calculate pitch bend value from frequency deviation
+    ///
+    /// Returns a value from -1.0 to +1.0 representing the pitch bend amount
+    /// relative to the pitch_bend_range (in semitones).
+    ///
+    /// # Arguments
+    /// * `detected_frequency` - The actual detected frequency in Hz
+    /// * `target_note` - The target MIDI note number
+    /// * `pitch_bend_range` - The pitch bend range in semitones (e.g., 2.0)
+    pub fn calculate_pitch_bend(
+        detected_frequency: f32,
+        target_note: u8,
+        pitch_bend_range: f32,
+    ) -> f32 {
+        let target_frequency = Self::midi_to_frequency(target_note);
+
+        // Calculate the difference in semitones
+        // semitones = 12 * log2(detected / target)
+        let semitone_difference = 12.0 * (detected_frequency / target_frequency).log2();
+
+        // Normalize to pitch bend range (-1.0 to +1.0)
+        let bend = semitone_difference / pitch_bend_range;
+
+        // Clamp to valid range
+        bend.clamp(-1.0, 1.0)
+    }
 }
 
 #[cfg(test)]
@@ -227,5 +254,60 @@ mod tests {
             assert!(confidence > 0.5);
             assert!(confidence <= 1.0);
         }
+    }
+
+    #[test]
+    fn test_calculate_pitch_bend_no_bend() {
+        // Test with exact frequency match - should be no bend
+        let target_note = 69; // A4 = 440 Hz
+        let detected_frequency = 440.0;
+        let pitch_bend_range = 2.0;
+
+        let bend =
+            PitchDetector::calculate_pitch_bend(detected_frequency, target_note, pitch_bend_range);
+
+        assert_relative_eq!(bend, 0.0, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_calculate_pitch_bend_upward() {
+        // Test with frequency 1 semitone higher
+        let target_note = 69; // A4 = 440 Hz
+        let detected_frequency = 440.0 * 2.0_f32.powf(1.0 / 12.0); // One semitone up
+        let pitch_bend_range = 2.0;
+
+        let bend =
+            PitchDetector::calculate_pitch_bend(detected_frequency, target_note, pitch_bend_range);
+
+        // Should be 0.5 (1 semitone / 2 semitone range)
+        assert_relative_eq!(bend, 0.5, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_calculate_pitch_bend_downward() {
+        // Test with frequency 1 semitone lower
+        let target_note = 69; // A4 = 440 Hz
+        let detected_frequency = 440.0 * 2.0_f32.powf(-1.0 / 12.0); // One semitone down
+        let pitch_bend_range = 2.0;
+
+        let bend =
+            PitchDetector::calculate_pitch_bend(detected_frequency, target_note, pitch_bend_range);
+
+        // Should be -0.5 (-1 semitone / 2 semitone range)
+        assert_relative_eq!(bend, -0.5, epsilon = 0.01);
+    }
+
+    #[test]
+    fn test_calculate_pitch_bend_clamping() {
+        // Test with frequency way off - should clamp to -1.0 or +1.0
+        let target_note = 69; // A4 = 440 Hz
+        let detected_frequency = 440.0 * 2.0_f32.powf(5.0 / 12.0); // 5 semitones up
+        let pitch_bend_range = 2.0;
+
+        let bend =
+            PitchDetector::calculate_pitch_bend(detected_frequency, target_note, pitch_bend_range);
+
+        // Should be clamped to 1.0
+        assert_relative_eq!(bend, 1.0, epsilon = 0.01);
     }
 }
