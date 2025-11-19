@@ -19,6 +19,38 @@ pub struct Config {
 
     /// Enable verbose logging
     pub verbose: bool,
+
+    /// Enable fuzzy note detection with learning
+    #[serde(default = "default_fuzzy_enabled")]
+    pub fuzzy_enabled: bool,
+
+    /// Confidence threshold for fuzzy logic (notes below this use fuzzy resolution)
+    #[serde(default = "default_fuzzy_threshold")]
+    pub fuzzy_threshold: f32,
+
+    /// Confidence threshold to consider a note "clear" for learning
+    #[serde(default = "default_clear_threshold")]
+    pub clear_threshold: f32,
+
+    /// Maximum number of recent notes to track for pattern detection
+    #[serde(default = "default_max_recent_notes")]
+    pub max_recent_notes: usize,
+}
+
+fn default_fuzzy_enabled() -> bool {
+    true
+}
+
+fn default_fuzzy_threshold() -> f32 {
+    0.7
+}
+
+fn default_clear_threshold() -> f32 {
+    0.8
+}
+
+fn default_max_recent_notes() -> usize {
+    20
 }
 
 impl Default for Config {
@@ -30,6 +62,10 @@ impl Default for Config {
             midi_port: None,
             velocity: 80,
             verbose: false,
+            fuzzy_enabled: default_fuzzy_enabled(),
+            fuzzy_threshold: default_fuzzy_threshold(),
+            clear_threshold: default_clear_threshold(),
+            max_recent_notes: default_max_recent_notes(),
         }
     }
 }
@@ -39,13 +75,28 @@ impl Config {
     pub fn from_file(path: &str) -> anyhow::Result<Self> {
         let contents = std::fs::read_to_string(path)?;
         let config: Config = serde_json::from_str(&contents)?;
+        config.validate()?;
         Ok(config)
     }
 
     /// Save configuration to JSON file
     pub fn to_file(&self, path: &str) -> anyhow::Result<()> {
+        self.validate()?;
         let json = serde_json::to_string_pretty(self)?;
         std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Validate configuration parameters
+    fn validate(&self) -> anyhow::Result<()> {
+        if self.fuzzy_enabled && self.clear_threshold < self.fuzzy_threshold {
+            anyhow::bail!(
+                "clear_threshold ({}) must be greater than or equal to fuzzy_threshold ({}). \
+                 Clear notes (used for learning) should have higher confidence than the threshold for applying fuzzy logic.",
+                self.clear_threshold,
+                self.fuzzy_threshold
+            );
+        }
         Ok(())
     }
 }
@@ -68,5 +119,32 @@ mod tests {
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.buffer_size, config.buffer_size);
+    }
+
+    #[test]
+    fn test_config_validation_valid() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_validation_invalid_thresholds() {
+        let config = Config {
+            fuzzy_threshold: 0.8,
+            clear_threshold: 0.7, // Invalid: clear < fuzzy
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_config_validation_disabled_fuzzy() {
+        let config = Config {
+            fuzzy_enabled: false,
+            fuzzy_threshold: 0.8,
+            clear_threshold: 0.7, // Would be invalid if fuzzy enabled, but OK when disabled
+            ..Default::default()
+        };
+        assert!(config.validate().is_ok());
     }
 }

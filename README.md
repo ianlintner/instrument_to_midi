@@ -8,6 +8,7 @@ Real-time guitar to MIDI conversion using Rust. This application captures audio 
 ## Features
 
 - **Real-time pitch detection** using the YIN algorithm
+- **Fuzzy note detection with session learning** - uses clearly detected notes to improve ambiguous detections
 - **Low-latency** audio processing optimized for live performance
 - **MIDI output** via virtual or physical MIDI ports
 - **Configurable** buffer sizes and detection parameters
@@ -101,7 +102,11 @@ Configuration can be provided via a JSON file:
   "pitch_threshold": 0.15,
   "midi_port": null,
   "velocity": 80,
-  "verbose": false
+  "verbose": false,
+  "fuzzy_enabled": true,
+  "fuzzy_threshold": 0.7,
+  "clear_threshold": 0.8,
+  "max_recent_notes": 20
 }
 ```
 
@@ -111,6 +116,23 @@ Configuration can be provided via a JSON file:
 - `midi_port`: MIDI output port name (null for virtual port)
 - `velocity`: MIDI velocity (0-127)
 - `verbose`: Enable debug logging
+
+### Fuzzy Note Detection
+
+The fuzzy note detection feature uses session learning to improve accuracy for ambiguous notes:
+
+- `fuzzy_enabled`: Enable fuzzy note detection with learning (default: true)
+- `fuzzy_threshold`: Confidence threshold below which fuzzy logic is applied (default: 0.7)
+- `clear_threshold`: Confidence threshold for notes to be considered "clear" for learning (default: 0.8)
+- `max_recent_notes`: Maximum number of recent notes to track for pattern detection (default: 20)
+
+When a note is detected with low confidence (below `fuzzy_threshold`), the system applies fuzzy logic rules:
+1. **Temporal locality**: Boosts recently played notes
+2. **Neighboring notes**: Considers notes near recent detections
+3. **Historical frequency**: Favors notes that have been played frequently in the session
+4. **Alternative resolution**: Checks ±1 semitone for better matches
+
+This helps resolve ambiguous detections while learning from clear notes throughout the session.
 
 ## Development
 

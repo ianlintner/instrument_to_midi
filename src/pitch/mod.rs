@@ -19,7 +19,14 @@ impl PitchDetector {
     }
 
     /// Detect pitch using the YIN algorithm
+    #[allow(dead_code)]
     pub fn detect_pitch(&self, samples: &[f32]) -> Option<f32> {
+        self.detect_pitch_with_confidence(samples)
+            .map(|(freq, _)| freq)
+    }
+
+    /// Detect pitch using the YIN algorithm and return confidence score
+    pub fn detect_pitch_with_confidence(&self, samples: &[f32]) -> Option<(f32, f32)> {
         if samples.len() < self.buffer_size {
             return None;
         }
@@ -70,10 +77,17 @@ impl PitchDetector {
         let better_tau = self.parabolic_interpolation(&cmnd, tau);
         let frequency = self.sample_rate / better_tau;
 
+        // Calculate confidence: inverse of the CMND value (lower CMND = higher confidence)
+        // CMND values are normalized but can exceed 1.0; confidence is clamped to [0, 1]
+        let confidence = (1.0 - cmnd[tau]).clamp(0.0, 1.0);
+
         // Validate frequency is in guitar range
         if (MIN_FREQUENCY..=MAX_FREQUENCY).contains(&frequency) {
-            debug!("Detected frequency: {:.2} Hz", frequency);
-            Some(frequency)
+            debug!(
+                "Detected frequency: {:.2} Hz, confidence: {:.2}",
+                frequency, confidence
+            );
+            Some((frequency, confidence))
         } else {
             None
         }
@@ -104,6 +118,12 @@ impl PitchDetector {
         note.round().clamp(0.0, 127.0) as u8
     }
 
+    /// Convert MIDI note number to frequency
+    pub fn midi_to_frequency(midi_note: u8) -> f32 {
+        // frequency = 440 * 2^((midi_note - 69) / 12)
+        440.0 * 2.0_f32.powf((midi_note as f32 - 69.0) / 12.0)
+    }
+
     /// Get MIDI note name from note number
     pub fn midi_to_note_name(midi_note: u8) -> String {
         let note_names = [
@@ -130,6 +150,14 @@ mod tests {
 
         // E4 = 329.63 Hz = MIDI note 64
         assert_eq!(PitchDetector::frequency_to_midi(329.63), 64);
+    }
+
+    #[test]
+    fn test_midi_to_frequency() {
+        // Test round-trip conversion
+        assert_relative_eq!(PitchDetector::midi_to_frequency(69), 440.0, epsilon = 0.1);
+        assert_relative_eq!(PitchDetector::midi_to_frequency(40), 82.41, epsilon = 0.1);
+        assert_relative_eq!(PitchDetector::midi_to_frequency(64), 329.63, epsilon = 0.1);
     }
 
     #[test]
@@ -170,6 +198,34 @@ mod tests {
         // Allow 5% error in frequency detection
         if let Some(freq) = detected {
             assert_relative_eq!(freq, frequency, epsilon = frequency * 0.05);
+        }
+    }
+
+    #[test]
+    fn test_detect_pitch_with_confidence() {
+        let sample_rate = 44100;
+        let detector = PitchDetector::new(sample_rate, 2048, 0.15);
+
+        // Generate a 440 Hz sine wave
+        let frequency = 440.0;
+        let duration = 0.1; // 100ms
+        let num_samples = (sample_rate as f32 * duration) as usize;
+        let mut samples = vec![0.0; num_samples];
+
+        for (i, sample) in samples.iter_mut().enumerate() {
+            let t = i as f32 / sample_rate as f32;
+            *sample = (2.0 * std::f32::consts::PI * frequency * t).sin();
+        }
+
+        let detected = detector.detect_pitch_with_confidence(&samples);
+        assert!(detected.is_some());
+
+        if let Some((freq, confidence)) = detected {
+            // Check frequency
+            assert_relative_eq!(freq, frequency, epsilon = frequency * 0.05);
+            // Confidence should be reasonable for clean sine wave
+            assert!(confidence > 0.5);
+            assert!(confidence <= 1.0);
         }
     }
 }
