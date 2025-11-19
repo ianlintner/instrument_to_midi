@@ -17,6 +17,7 @@ Thumbs.db
 *.mid
 *.midi
 test_output/
+examples/audio/*.wav
 
 # Logs
 *.log

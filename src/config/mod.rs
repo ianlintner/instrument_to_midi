@@ -19,6 +19,38 @@ pub struct Config {
 
     /// Enable verbose logging
     pub verbose: bool,
+
+    /// Enable fuzzy note detection with learning
+    #[serde(default = "default_fuzzy_enabled")]
+    pub fuzzy_enabled: bool,
+
+    /// Confidence threshold for fuzzy logic (notes below this use fuzzy resolution)
+    #[serde(default = "default_fuzzy_threshold")]
+    pub fuzzy_threshold: f32,
+
+    /// Confidence threshold to consider a note "clear" for learning
+    #[serde(default = "default_clear_threshold")]
+    pub clear_threshold: f32,
+
+    /// Maximum number of recent notes to track for pattern detection
+    #[serde(default = "default_max_recent_notes")]
+    pub max_recent_notes: usize,
+}
+
+fn default_fuzzy_enabled() -> bool {
+    true
+}
+
+fn default_fuzzy_threshold() -> f32 {
+    0.7
+}
+
+fn default_clear_threshold() -> f32 {
+    0.8
+}
+
+fn default_max_recent_notes() -> usize {
+    20
 }
 
 impl Default for Config {
@@ -30,6 +62,10 @@ impl Default for Config {
             midi_port: None,
             velocity: 80,
             verbose: false,
+            fuzzy_enabled: default_fuzzy_enabled(),
+            fuzzy_threshold: default_fuzzy_threshold(),
+            clear_threshold: default_clear_threshold(),
+            max_recent_notes: default_max_recent_notes(),
         }
     }
 }

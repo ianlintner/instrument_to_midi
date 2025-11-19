@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use crate::audio::AudioInput;
 use crate::config::Config;
+use crate::fuzzy::{FuzzyNoteResolver, NoteDetection};
 use crate::midi::MidiOutputHandler;
 use crate::pitch::PitchDetector;
 
@@ -13,6 +14,7 @@ pub struct StreamProcessor {
     audio_input: AudioInput,
     pitch_detector: PitchDetector,
     midi_output: MidiOutputHandler,
+    fuzzy_resolver: Option<FuzzyNoteResolver>,
     current_note: Option<u8>,
     note_start_time: Option<Instant>,
 }
@@ -27,6 +29,18 @@ impl StreamProcessor {
         let mut midi_output = MidiOutputHandler::new()?;
         midi_output.connect(config.midi_port.as_deref())?;
 
+        // Initialize fuzzy note resolver if enabled
+        let fuzzy_resolver = if config.fuzzy_enabled {
+            info!("Fuzzy note detection enabled");
+            Some(FuzzyNoteResolver::new(
+                config.max_recent_notes,
+                config.clear_threshold,
+                config.fuzzy_threshold,
+            ))
+        } else {
+            None
+        };
+
         info!(
             "Stream processor initialized with sample rate: {} Hz",
             sample_rate
@@ -37,6 +51,7 @@ impl StreamProcessor {
             audio_input,
             pitch_detector,
             midi_output,
+            fuzzy_resolver,
             current_note: None,
             note_start_time: None,
         })
@@ -76,9 +91,27 @@ impl StreamProcessor {
     }
 
     fn process_chunk(&mut self, samples: &[f32]) -> Result<()> {
-        // Detect pitch
-        if let Some(frequency) = self.pitch_detector.detect_pitch(samples) {
-            let note = PitchDetector::frequency_to_midi(frequency);
+        // Detect pitch with confidence
+        if let Some((frequency, confidence)) =
+            self.pitch_detector.detect_pitch_with_confidence(samples)
+        {
+            let detected_note = PitchDetector::frequency_to_midi(frequency);
+
+            // Create note detection
+            let detection = NoteDetection {
+                note: detected_note,
+                frequency,
+                confidence,
+            };
+
+            // Apply fuzzy resolution if enabled
+            let resolved_detection = if let Some(resolver) = &mut self.fuzzy_resolver {
+                resolver.resolve(detection)
+            } else {
+                detection
+            };
+
+            let note = resolved_detection.note;
             let note_name = PitchDetector::midi_to_note_name(note);
 
             // Handle note change
@@ -94,7 +127,14 @@ impl StreamProcessor {
                 self.current_note = Some(note);
                 self.note_start_time = Some(Instant::now());
 
-                info!("Playing note: {} ({:.2} Hz)", note_name, frequency);
+                if confidence < self.config.fuzzy_threshold && self.config.fuzzy_enabled {
+                    info!(
+                        "Playing note: {} ({:.2} Hz) [fuzzy resolved, confidence: {:.2}]",
+                        note_name, frequency, confidence
+                    );
+                } else {
+                    info!("Playing note: {} ({:.2} Hz)", note_name, frequency);
+                }
             }
         } else {
             // No pitch detected - turn off current note if minimum duration met

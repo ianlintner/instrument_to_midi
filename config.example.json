@@ -4,5 +4,9 @@
   "pitch_threshold": 0.15,
   "midi_port": null,
   "velocity": 80,
-  "verbose": false
+  "verbose": false,
+  "fuzzy_enabled": true,
+  "fuzzy_threshold": 0.7,
+  "clear_threshold": 0.8,
+  "max_recent_notes": 20
 }

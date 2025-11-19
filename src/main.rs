@@ -1,5 +1,6 @@
 mod audio;
 mod config;
+mod fuzzy;
 mod midi;
 mod pitch;
 mod processor;
